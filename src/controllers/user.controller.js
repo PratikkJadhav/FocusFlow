@@ -3,6 +3,7 @@ import ApiResponse from "../utils/ApiResponse.utils.js";
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken"
 import { User } from "../models/user.models.js";
+import { Guest } from "../models/guest.models.js";
 import asycnHandler from "../utils/AsycnHandler.utils.js";
 
 const generateTokens = async(userID) =>{
@@ -21,6 +22,27 @@ const generateTokens = async(userID) =>{
     }
 }
 
+const getUserDetails = asycnHandler( async (req , res)=>{
+
+    //get user details , if they provide email and password then register and if they continue as guest then continue as guest
+    const {email , password} = req.body
+
+    if(email && !password){
+        registerUser(req , res)
+    }
+
+    if(!email){
+        continueAsGuest(req , res);
+    }
+})
+const continueAsGuest = asycnHandler (async (req , res)=>{
+    //get guestID
+    //add to db
+
+    const guest = await Guest.create({})
+
+    return res.status(200).json({success:true , guest_ID: guest._id , message: "Guest login succesfull"})
+})
 const registerUser = asycnHandler( async (req , res)=>{
     /*
         Get user details from frontend
@@ -32,12 +54,8 @@ const registerUser = asycnHandler( async (req , res)=>{
         return res
     */
 
+        
         const {email , password} = req.body
-
-        if(!email || !password){
-            throw new ApiError(404 , "All fields are required")
-        }
-
         const alreadyRegistered = await User.findOne({email})
         if(alreadyRegistered){
             throw new ApiError(404 , "email already registered , try another email")
@@ -48,7 +66,7 @@ const registerUser = asycnHandler( async (req , res)=>{
             password
         })
 
-        const createdUser = user.findById(user._id).select("-password -refreshToken")
+        const createdUser = User.findById(user._id).select("-password -refreshToken")
 
         if(!createdUser){
             throw new ApiError(404 , "Something went wrong while registering user")
@@ -91,7 +109,7 @@ const loginUser = asycnHandler(async (req , res)=>{
         secure: true
     }
 
-    return res.status(200).cookie("AccessToken" ,accessToken , options).cookie("RefreshToken" , refreshToken , options).json(new ApiResponse(200 , {user , accessToken , refreshToken} , "User logged in Succesfully"))
+    return res.status(200).cookie("AccessToken" ,accessToken , options).cookie("RefreshToken" , refreshToken , options).json(new ApiResponse(200 , {user:loginUser , accessToken , refreshToken} , "User logged in Succesfully"))
 
 })
 
@@ -103,6 +121,6 @@ const logoutUser = asycnHandler(async (req , res)=>{
         secure: true
     }
 
-    return res.status(200).json(new ApiResponse(200 , "User loggedOut Succesfully"))
+    return res.status(200).clearCookie("AccessToken", options).clearCookie("RefreshToken" , options).json(new ApiResponse(200 , "User loggedOut Succesfully"))
 
 })
