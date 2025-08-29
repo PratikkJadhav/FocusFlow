@@ -4,6 +4,10 @@ const todoSchema = new Schema({
     task:{
         type:String,
         required:true,
+    },
+    date:{
+        type:Date,
+        
     }
 })
 

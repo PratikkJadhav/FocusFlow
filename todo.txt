@@ -2,12 +2,16 @@
     [] Registration:
         [] Check email already exits
         [] Check confirm password is equal to password 
-    [] Continue as guest :- 30 days todo on browser after that it refreshes
+    [] Continue as guest :- 30 days todo on browser after that it refreshes ( save on cookies )
     [] Login:-
         [] check email exists or not
         [] password is correct or not
 
 2. Big Box on top ( field for entering the todos)
-    [] after entering , 1st todo goes below ( new column is made under todays heading above overdue )
+    [] after entering , 1st todo goes below ( new column is made under "today's date" heading above overdue )
     [] Overdue :- Todo and below that todo we will show date of the todo
     
+3.Models
+    [] User Model
+    [] Todo Model
+    [] 
