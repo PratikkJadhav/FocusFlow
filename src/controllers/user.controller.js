@@ -35,6 +35,7 @@ const getUserDetails = asycnHandler( async (req , res)=>{
         continueAsGuest(req , res);
     }
 })
+
 const continueAsGuest = asycnHandler (async (req , res)=>{
     //get guestID
     //add to db
@@ -43,6 +44,7 @@ const continueAsGuest = asycnHandler (async (req , res)=>{
 
     return res.status(200).json({success:true , guest_ID: guest._id , message: "Guest login succesfull"})
 })
+
 const registerUser = asycnHandler( async (req , res)=>{
     /*
         Get user details from frontend
@@ -66,7 +68,7 @@ const registerUser = asycnHandler( async (req , res)=>{
             password
         })
 
-        const createdUser = User.findById(user._id).select("-password -refreshToken")
+        const createdUser = await User.findById(user._id).select("-password -refreshToken")
 
         if(!createdUser){
             throw new ApiError(404 , "Something went wrong while registering user")
@@ -82,7 +84,7 @@ const loginUser = asycnHandler(async (req , res)=>{
     //check if email is correct , password is correct
     //refreshToken is correct
     //send cookie
-
+    
     const {email , password} = req.body;
     if(!email || !password){
         throw new ApiError(404 , "All fields are required")
@@ -108,8 +110,10 @@ const loginUser = asycnHandler(async (req , res)=>{
         httpOnly: true,
         secure: true
     }
+    user.refreshToken = refreshToken
+    await user.save()
 
-    return res.status(200).cookie("AccessToken" ,accessToken , options).cookie("RefreshToken" , refreshToken , options).json(new ApiResponse(200 , {user:loginUser , accessToken , refreshToken} , "User logged in Succesfully"))
+    return res.status(200).cookie("accessToken" ,accessToken , options).cookie("refreshToken" , refreshToken , options).json(new ApiResponse(200 , {user:loginUser , accessToken , refreshToken} , "User logged in Succesfully"))
 
 })
 
@@ -121,6 +125,48 @@ const logoutUser = asycnHandler(async (req , res)=>{
         secure: true
     }
 
-    return res.status(200).clearCookie("AccessToken", options).clearCookie("RefreshToken" , options).json(new ApiResponse(200 , "User loggedOut Succesfully"))
+    return res.status(200).clearCookie("accessToken", options).clearCookie("refreshToken" , options).json(new ApiResponse(200 , "User loggedOut Succesfully"))
 
 })
+
+
+const generateAccessTokens = asycnHandler (async ( req , res)=>{
+    currentRefreshToken = req.cookies.refreshToken || req.body.refreshToken
+
+    if(!currentRefreshToken){
+        throw new ApiError(404 , "Unauthorized Request")
+    }
+
+    try {
+        const decodedToken =  jwt.verify(currentRefreshToken , process.env.REFRESH_TOKEN_SECRET)
+        const user = User.findById(decodedToken?._id)
+        if(!user) {
+            throw new ApiError(401, "Invalid access token")
+        }
+        
+        if(currentRefreshToken != user.refreshToken){
+            throw new ApiError(404 , "refresh Token expired")
+        }
+    
+        const options = {
+            httpOnly: true,
+            secure: true
+        }
+    
+        const {accessToken , newrefreshToken} = await generateTokens(user._id)
+    
+        res.status(200).cookie("accessToken" , accessToken , options).cookie("refreshToken" , newrefreshToken , options).json(new ApiResponse(200 , {accessToken , "refresToken": newrefreshToken} , "AccessToken generated successfully"))
+    } catch (error) {
+        throw new ApiError(404 , error.message)
+    }
+
+})
+
+export {
+    registerUser ,
+    loginUser , 
+    logoutUser , 
+    continueAsGuest , 
+    generateAccessTokens,
+    getUserDetails
+}

@@ -1,1 +1,1 @@
-export const DB_NAME = "FocusFlow"
+export const DB_NAME = "FocusFlow/"
