@@ -5,32 +5,40 @@ import { Todos } from "../models/todo.models.js";
 import mongoose from "mongoose";
 
 const createTask = asycnHandler(async (req , res)=>{
-        const {task , dueDate , ownerID} = req.body
-        if(!task || !dueDate || !ownerID){
-            throw new ApiError(404 , "Please provide all the necessary details like todos and dueDate")
+        const ownerId = req.user?._id || req.guest._id
+        console.log(req.guestId);
+        
+        if(!ownerId){
+            throw new ApiError(401 , "You must be logged In to create tasks")
         }
-        const newTask = new Todos({task , dueDate  , ownerID})
+
+        const {task , dueDate } = req.body
+        if(!task ){
+            throw new ApiError(400 , "Please provide the task")
+        }
+        
+        const newTask = new Todos({"task":task ,"dueDate": dueDate  ,"owner": ownerId})
 
         await newTask.save()
 
-
-        res.status(200).json(newTask)
-            
-        res.status(200).json(new ApiResponse(200 , {} ,"Successfully created the task"))
+        return res.status(200).json(new ApiResponse(200 , newTask ,"Successfully created the task"))
     
 })
 
 const deleteTask = asycnHandler(async (req , res)=>{
-        const currentUserID = req.user?._id
-        if(!currentUserID){
+        const UserId = req.user?._id || req.guest?._id
+        const currentUserId = UserId.toString()
+        if(!currentUserId){
             throw new ApiError(404 , "You must be logged In")
         }
         const taskId = req.params.id
         
+        
         if(!taskId){
             throw new ApiError(401 , "No task found")
         }
-        const deleteTask = await Todos.findByIdAndDelete({_id : taskId ,  ownerID : currentUserID})
+        
+        const deleteTask = await Todos.findOneAndDelete({_id : taskId ,  owner : currentUserId})
 
         if(!deleteTask){
             throw new ApiError(401 , "Task not found")
@@ -38,10 +46,30 @@ const deleteTask = asycnHandler(async (req , res)=>{
 
         res.status(200).json(new ApiResponse(200 , {} ,"Successfully deleted the task"))
         
-        
+})
+
+const taskComplete = asycnHandler(async(req , res)=>{
+    const userId = req.user?._id || req.guest?._id
+    const currentUserId = userId.toString()
+    if(!currentUserId){
+        throw new ApiError(401 , "You must be loggedIn to this")
+    }
+    const taskId = req.params.id
+    if(!taskId){
+        throw new ApiError(401 , "No task found")
+    }
+
+    const updatedTask = await Todos.findByIdAndUpdate({_id:taskId , owner:currentUserId} , {$set:{completed:true}} , {new:true})
+
+    return res.status(200).json(
+        new ApiResponse(200, updatedTask, "Task status updated successfully")
+    );
+    
+
 })
 
 export {
     createTask,
-    deleteTask
+    deleteTask,
+    taskComplete
 }

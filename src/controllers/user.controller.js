@@ -22,27 +22,29 @@ const generateTokens = async(userID) =>{
     }
 }
 
-const getUserDetails = asycnHandler( async (req , res)=>{
-
-    //get user details , if they provide email and password then register and if they continue as guest then continue as guest
-    const {email , password} = req.body
-
-    if(email && !password){
-        registerUser(req , res)
-    }
-
-    if(!email){
-        continueAsGuest(req , res);
-    }
-})
 
 const continueAsGuest = asycnHandler (async (req , res)=>{
+    //check for existing guestID in cookies
     //get guestID
     //add to db
 
-    const guest = await Guest.create({})
+    const existingGuestId = req.cookies?.guestId
+    let guest;
+    if(existingGuestId){
+        guest = Guest.findById(existingGuestId)
+    }
+     
+    if(!guest){
+        guest = await Guest.create({})
+    }   
 
-    return res.status(200).json({success:true , guest_ID: guest._id , message: "Guest login succesfull"})
+    const options = {
+        httpOnly:true,
+        secure:true,
+        maxAge: 30*24*60*60*1000
+    }
+
+    return res.status(200).cookie("guestId", guest._id , options).json({success:true , guestId: guest._id , message: "Guest login succesfull"})
 })
 
 const registerUser = asycnHandler( async (req , res)=>{
@@ -80,6 +82,7 @@ const registerUser = asycnHandler( async (req , res)=>{
 })
 
 const loginUser = asycnHandler(async (req , res)=>{
+    //check if accessToken is present in cookies or not 
     //get data from user
     //check if email is correct , password is correct
     //refreshToken is correct
@@ -110,14 +113,16 @@ const loginUser = asycnHandler(async (req , res)=>{
         httpOnly: true,
         secure: true
     }
-    user.refreshToken = refreshToken
-    await user.save()
 
     return res.status(200).cookie("accessToken" ,accessToken , options).cookie("refreshToken" , refreshToken , options).json(new ApiResponse(200 , {user:loginUser , accessToken , refreshToken} , "User logged in Succesfully"))
 
 })
 
 const logoutUser = asycnHandler(async (req , res)=>{
+    if(!req.user?._id){
+        throw new ApiError(401 , "Unauthorized Request")
+    }
+
     await User.findByIdAndUpdate(req.user._id , {$unset:{refreshToken:1}},{new:true})
 
     const options = {
@@ -139,7 +144,7 @@ const generateAccessTokens = asycnHandler (async ( req , res)=>{
 
     try {
         const decodedToken =  jwt.verify(currentRefreshToken , process.env.REFRESH_TOKEN_SECRET)
-        const user = User.findById(decodedToken?._id)
+        const user = await User.findById(decodedToken?._id)
         if(!user) {
             throw new ApiError(401, "Invalid access token")
         }
@@ -168,5 +173,4 @@ export {
     logoutUser , 
     continueAsGuest , 
     generateAccessTokens,
-    getUserDetails
 }
